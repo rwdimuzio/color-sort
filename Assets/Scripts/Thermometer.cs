@@ -7,8 +7,6 @@ using UnityEngine;
 public class Thermometer : MonoBehaviour
 {
     public Material[] materials;
-    public float maxTime =  5.0f;
-    public float minTime =  0.2f;
     public float timeDecrement = 0.5f;
 
     private float pct=1.0f;
@@ -16,18 +14,18 @@ public class Thermometer : MonoBehaviour
     private Material m_Material;
     private float time;
     private float elapsedTime;
+    private bool onACall=false;
 
-    // Start is called before the first frame update
     void Start()
     {
         maxScale = gameObject.transform.localScale.x;
         m_Material =  GetComponent<Renderer>().material;
-        ResetTimer(maxTime);
     }
 
-    // Update is called once per frame
     void Update()
     {
+        if(!onACall) return;
+
         float prevTime = elapsedTime;
         elapsedTime -= Time.deltaTime;
         if(elapsedTime < 0.0f ) elapsedTime = 0.0f;
@@ -39,19 +37,20 @@ public class Thermometer : MonoBehaviour
             m_Material = materials[1];
         else 
             m_Material = materials[2];
+
         GetComponent<Renderer>().material = m_Material;
         if(prevTime > 0.0f && elapsedTime == 0.0f){
-//TODO put me back            time -= timeDecrement;
-            if(time<minTime) time = minTime; 
-            ResetTimer(time);
+            OnTimeIsUp();
         }
     }
 
     public void OnTimeIsUp(){
-        ResetTimer(10.0f);
+        onACall=false;
+        GameManager.Instance.OnPlayerDeath();
     }
 
     public void ResetTimer(float timeSec){
+        onACall=true;
         time = timeSec;
         elapsedTime = timeSec;
     }

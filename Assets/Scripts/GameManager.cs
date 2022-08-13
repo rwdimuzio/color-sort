@@ -1,7 +1,3 @@
-using System.Runtime.InteropServices;
-using System.ComponentModel.Design;
-using System.Diagnostics;
-using System.ComponentModel;
 using System;
 using System.Collections;
 using System.IO;
@@ -13,14 +9,29 @@ using Debug = UnityEngine.Debug;
 
 public class GameManager : MonoBehaviour
 {
-    const int CENTERS=16;
-    public Material[] materials;
-    public MaterialIndex[] queue;
-    public GameObject[] center;
-    public GameObject BooBoo;
+    const int NORTH=0;
+    const int EAST=1;
+    const int SOUTH=2;
+    const int WEST=3;
+    const float MIN_SECS=0.100f;
+    const float MAX_SECS=3.00f;
+    const float SEC_DEC=.200f;
 
-    public int centerIdx = 5;
+    public Material[] materials; // 4 x target colors, one for every point of the compass 
+    public MaterialIndex[] queue;  // show them the next view in the queue
+    public Thermometer thermometer; // the countdown timer
+    public GameObject center; // center piece - dups of this are also flung
+    public GameObject BooBoo; // fault object
+
     public int materialIdx = 0;
+
+
+    // score, level
+    private float countDownSecs = MAX_SECS;
+    private int hits = 0;
+    private int level=0;
+    private int score=0;
+    private bool gameOver = true; 
 
 
     // preserve key directions
@@ -33,96 +44,64 @@ public class GameManager : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null)
-        {
+        if (Instance == null){
             Instance = this;
             DontDestroyOnLoad(this.gameObject);
-        }
-        else
-        {
+        } else {
             Destroy(this);
         }
-
-        //ActivateNext();
-        queue[0].setIndex(0, materials[0]);
-        queue[1].setIndex(1, materials[1]);
-        queue[2].setIndex(2, materials[2]);
-        queue[3].setIndex(3, materials[3]);
-
-        // prime queue
-        for(int i = 0; i < center.Length; i++){
-            popQueue();
-        }
-        centerIdx = center.Length -1 ;
-        ActivateNext();
+        OnStartGame();
     }
-
-    public void update()
-    {
-    }
-
 
     void Update()
     {
-        if (BooBoo.active)
-        {
+        if(gameOver){
+            return;
+        }
+        
+        if (BooBoo.active){
             return;
         }
 
         var north = Input.GetKey(KeyCode.UpArrow);
-        if (north && !lastNorth)
-        {
-            if (canGoNorth())
-            {
+        if (north && !lastNorth) {
+            if (canGo(NORTH)) {
+                OnHit();
                 FlingNorth();
-            }
-            else
-            {
+            } else {
                 showBooBoo();
             }
         }
         lastNorth = north;
 
         var east = Input.GetKey(KeyCode.RightArrow);
-        if (east && !lastEast)
-        {
-            if (canGoEast())
-            {
+        if (east && !lastEast) {
+            if (canGo(EAST)) {
+                OnHit();
                 FlingEast();
-                ActivateNext();
-            }
-            else
-            {
+            } else {
                 showBooBoo();
             }
         }
         lastEast = east;
 
         var south = Input.GetKey(KeyCode.DownArrow);
-        if (south && !lastSouth)
-        {
-            if (canGoSouth())
-            {
+        if (south && !lastSouth) {
+            if (canGo(SOUTH)) {
+                OnHit();
                 FlingSouth();
-                ActivateNext();
-            }
-            else
-            {
+            } else {
                 showBooBoo();
             }
         }
         lastSouth = south;
 
         var west = Input.GetKey(KeyCode.LeftArrow);
-        if (west && !lastWest)
-        {
-            if (canGoWest())
-            {
+        if (west && !lastWest) {
+            if (canGo(WEST) ) {
+                OnHit();
                 FlingWest();
-                ActivateNext();
-            }
-            else
-            {
+            } else {
                 showBooBoo();
             }
         }
@@ -135,28 +114,10 @@ public class GameManager : MonoBehaviour
 
     public void ActivateNext()
     {
-        setZ(CenterObj, -1.58f);
-
         int m = popQueue();
-
-        centerIdx = (centerIdx + 1) % center.Length;
-
-        CenterObj.GetComponent<MaterialIndex>().setIndex(m, materials[m]);
-        setZ(CenterObj, -3.5f);
+        center.GetComponent<MaterialIndex>().setIndex(m, materials[m]);
         materialIdx = m;
-    }
-
-    public GameObject CenterObj
-    {
-        get
-        {
-            return center[mcenter(centerIdx)];
-        }
-    }
-
-    private GameObject Obj(int idx)
-    {
-        return center[mcenter(idx)].gameObject;
+        thermometer.ResetTimer(countDownSecs);
     }
 
     private void setZ(GameObject obj, float pos)
@@ -165,24 +126,18 @@ public class GameManager : MonoBehaviour
         obj.gameObject.transform.position = new Vector3(t.x, t.y, pos);
     }
 
-    private int mcenter(int pos)
-    {
-        return pos % center.Length;
-    }
-
     private int popQueue()
     {
         int idx = queue[0].getIndex();
-        for (int i = 0; i < 4 - 1; i++)
-        {
-            queue[i]
-                .setIndex(queue[i + 1].getIndex(),
-                materials[queue[i + 1].getIndex()]);
+        for (int i = 0; i < 4 - 1; i++) {
+            queue[i].setIndex(
+                queue[i + 1].getIndex(),
+                materials[queue[i + 1].getIndex()]
+            );
         }
         int prevIdx = queue[3].getIndex();
         int nextIdx = prevIdx;
-        while (prevIdx == nextIdx)
-        {
+        while (prevIdx == nextIdx) {
             nextIdx = Random.Range(0, materials.Length);
         }
         queue[3].setIndex(nextIdx, materials[nextIdx]);
@@ -191,56 +146,47 @@ public class GameManager : MonoBehaviour
 
     private void FlingNorth()
     {
-        setZ(CenterObj, -3.25f);
-        var behavior = CenterObj.GetComponent<CenterBehavior>();
-        behavior.move(Vector3.up);
+        SendChip(Vector3.up);
         ActivateNext();
     }
 
     private void FlingEast()
     {
-        setZ(CenterObj, -3.26f);
-        var behavior = CenterObj.GetComponent<CenterBehavior>();
-        behavior.move(Vector3.right);
+        SendChip(Vector3.right);
         ActivateNext();
     }
 
     private void FlingSouth()
     {
-        setZ(CenterObj, -3.27f);
-        var behavior = CenterObj.GetComponent<CenterBehavior>();
-        behavior.move(Vector3.down);
+        SendChip(Vector3.down);
         ActivateNext();
     }
 
     private void FlingWest()
     {
-        setZ(CenterObj, -3.28f);
-        var behavior = CenterObj.GetComponent<CenterBehavior>();
-        behavior.move(Vector3.left);
+        SendChip(Vector3.left);
         ActivateNext();
     }
 
-    private bool canGoNorth()
+    private void SendChip(Vector3 direction)
     {
-        return materialIdx == 0;
+        GameObject obj   =  Instantiate(center,
+            new Vector3(
+                center.transform.position.x,
+                center.transform.position.y,
+                center.transform.position.z-1.0f
+            ),
+            Quaternion.identity
+        );
+        MaterialIndex mat = obj.GetComponent<MaterialIndex>();
+        mat.setIndex(materialIdx, materials[materialIdx]);
+        var behavior = obj.GetComponent<CenterBehavior>();
+        behavior.move(direction);
     }
 
-    private bool canGoEast()
-    {
-        return materialIdx == 1;
+    private bool canGo(int destIndex){
+        return materialIdx == destIndex;
     }
-
-    private bool canGoSouth()
-    {
-        return materialIdx == 2;
-    }
-
-    private bool canGoWest()
-    {
-        return materialIdx == 3;
-    }
-
 
     public void showBooBoo()
     {
@@ -250,7 +196,43 @@ public class GameManager : MonoBehaviour
     private IEnumerator booBooCoroutine()
     {
         BooBoo.active = true;
-        yield return new WaitForSeconds(.001f);
+        yield return new WaitForSeconds(.500f);
         BooBoo.active = false;
     }
+
+    public void OnStartGame(){
+        //ActivateNext();
+        // prime the pump
+        for(int i = 0; i<5; i++){
+           ActivateNext();
+        }
+        countDownSecs = MAX_SECS;
+        hits = 0;
+        level=1;
+        score=0;
+        gameOver=false;
+        thermometer.ResetTimer(countDownSecs);
+    }
+
+    public void OnHit(){
+        hits++;
+        score += level * 100;
+
+        if(hits % 25 == 0){
+            level += level;
+            countDownSecs -= SEC_DEC;
+            if(countDownSecs < MIN_SECS){
+                countDownSecs = MIN_SECS;
+            }
+        }
+    }
+
+    public void OnPlayerDeath(){
+        OnEndGame();
+    }
+
+    public void OnEndGame(){
+        gameOver=true;
+    }
+
 }

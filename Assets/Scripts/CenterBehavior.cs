@@ -27,9 +27,7 @@ public class CenterBehavior : MonoBehaviour
         float x = gameObject.transform.position.x;
         float y = gameObject.transform.position.y;
         if( x < -9.87f || x > 9.75f || y < -5.01 || y > 13.26){
-           direction = Vector3.zero;
-           inFlight = false;
-           gameObject.transform.position = home;
+            UnityEngine.Object.Destroy(gameObject,0);
         }
     }
 
