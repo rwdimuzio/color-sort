@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using TMPro;
 
 using Random = UnityEngine.Random;
 using Vector3 = UnityEngine.Vector3;
@@ -22,15 +23,22 @@ public class GameManager : MonoBehaviour
     public Thermometer thermometer; // the countdown timer
     public GameObject center; // center piece - dups of this are also flung
     public GameObject BooBoo; // fault object
+    public GameObject gameOverUI; // game over/start presentation
+    public TMP_Text scoreUI;
+    public TMP_Text streakUI;
+    public TMP_Text highScoreUI;
+    public TMP_Text longestStreakUI;
 
-    public int materialIdx = 0;
-
+    private int targetDirection = 0;
 
     // score, level
     private float countDownSecs = MAX_SECS;
     private int hits = 0;
     private int level=0;
     private int score=0;
+    private int streak=0;
+    private int highScore=0;
+    private int longestStreak=0;
     private bool gameOver = true; 
 
 
@@ -50,7 +58,8 @@ public class GameManager : MonoBehaviour
         } else {
             Destroy(this);
         }
-        OnStartGame();
+        highScore = 0;
+        longestStreak = 0;
     }
 
     void Update()
@@ -116,7 +125,7 @@ public class GameManager : MonoBehaviour
     {
         int m = popQueue();
         center.GetComponent<MaterialIndex>().setIndex(m, materials[m]);
-        materialIdx = m;
+        targetDirection = m;
         thermometer.ResetTimer(countDownSecs);
     }
 
@@ -179,17 +188,18 @@ public class GameManager : MonoBehaviour
             Quaternion.identity
         );
         MaterialIndex mat = obj.GetComponent<MaterialIndex>();
-        mat.setIndex(materialIdx, materials[materialIdx]);
+        mat.setIndex(targetDirection, materials[targetDirection]);
         var behavior = obj.GetComponent<CenterBehavior>();
         behavior.move(direction);
     }
 
-    private bool canGo(int destIndex){
-        return materialIdx == destIndex;
+    private bool canGo(int destDir){
+        return targetDirection == destDir;
     }
 
     public void showBooBoo()
     {
+        streak=0;
         StartCoroutine(booBooCoroutine());
     }
 
@@ -201,6 +211,7 @@ public class GameManager : MonoBehaviour
     }
 
     public void OnStartGame(){
+        Debug.Log("OnGameStart");   
         //ActivateNext();
         // prime the pump
         for(int i = 0; i<5; i++){
@@ -212,11 +223,19 @@ public class GameManager : MonoBehaviour
         score=0;
         gameOver=false;
         thermometer.ResetTimer(countDownSecs);
+        gameOverUI.active = false;
     }
 
     public void OnHit(){
         hits++;
-        score += level * 100;
+        streak++;
+        score += level * 100 + streak * 10;
+        if(streak > longestStreak){
+            longestStreak = streak;
+        }
+        if(score > highScore ){
+            highScore = score;
+        }
 
         if(hits % 25 == 0){
             level += level;
@@ -225,6 +244,7 @@ public class GameManager : MonoBehaviour
                 countDownSecs = MIN_SECS;
             }
         }
+        updateUI();
     }
 
     public void OnPlayerDeath(){
@@ -233,6 +253,13 @@ public class GameManager : MonoBehaviour
 
     public void OnEndGame(){
         gameOver=true;
+        gameOverUI.active = true;
+    }
+    private void updateUI(){
+        scoreUI.text = "Score: "+score;
+        streakUI.text = "Streak: "+streak;
+        highScoreUI.text = ""+highScore;
+        longestStreakUI.text = ""+longestStreak;
     }
 
 }

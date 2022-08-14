@@ -27,7 +27,7 @@ public class Thermometer : MonoBehaviour
         if(!onACall) return;
 
         float prevTime = elapsedTime;
-        elapsedTime -= Time.deltaTime;
+        //elapsedTime -= Time.deltaTime;
         if(elapsedTime < 0.0f ) elapsedTime = 0.0f;
         pct = elapsedTime/time;
         gameObject.transform.localScale = new Vector3(pct * maxScale, 1.0f, 1.0f);
